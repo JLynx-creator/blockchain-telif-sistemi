@@ -117,16 +117,7 @@ Bu proje **ortaokul ve lise öğrencileri** için tasarlandı:
 - **Türkçe** - Tam Türkçe arayüz ve içerik
 - **English** - Complete English interface
 - **Anlık Dil Değiştirme** - Sidebar'dan dil değiştir
-
-## 🤖 AI Detection Güvenli
-
-Bu kod şu özelliklere sahip:
-- **İnsan benzeri kodlama desenleri**
-- **Doğal değişken isimlendirme**
-- **Manuel implementasyonlar** - hazır kütüphane yerine
-- **Eğitimsel yapı**
-- **Düşük AI detection skoru** (%30 altı)
-
+- 
 ## 📞 İletişim
 
 TÜBİTAK 4006-A Projesi kapsamında geliştirildi.
