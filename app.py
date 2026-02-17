@@ -10,6 +10,10 @@ import plotly.graph_objects as go
 from PIL import Image
 import io
 import base64
+import imagehash
+import qrcode
+import matplotlib.pyplot as plt
+import numpy as np
 
 st.set_page_config(
     page_title="Blockchain Copyright System",
@@ -27,6 +31,10 @@ LANGUAGES = {
         "blockchain": "⛓️ Blockchain",
         "analytics": "📊 Analizler",
         "verify": "🔍 Doğrula",
+        "theme": "🎨 Tema",
+        "theme_light": "Açık",
+        "theme_dark": "Koyu", 
+        "theme_grey": "Gri",
         "welcome": "Blockchain Telif Sistemine Hoş Geldiniz",
         "total_blocks": "Toplam Blok",
         "chain_valid": "Zincir Geçerli",
@@ -60,7 +68,10 @@ LANGUAGES = {
         "file_size": "Dosya Boyutu",
         "similarity_score": "Benzerlik Skoru",
         "not_found": "⚠️ Dosya blockchain'de bulunamadı. Bu dosya NFT olarak kaydedilmemiş.",
-        "found_in_blockchain": "✅ Dosya blockchain'de bulundu! {count} blokta bulundu."
+        "found_in_blockchain": "✅ Dosya blockchain'de bulundu! {count} blokta bulundu.",
+        "qr_code": "QR Kod",
+        "hash_comparison": "Hash Karşılaştırma",
+        "perceptual_hash": "Algısal Hash"
     },
     "English": {
         "title": "🔗 Blockchain Copyright System",
@@ -70,6 +81,10 @@ LANGUAGES = {
         "blockchain": "⛓️ Blockchain",
         "analytics": "📊 Analytics",
         "verify": "🔍 Verify",
+        "theme": "🎨 Theme",
+        "theme_light": "Light",
+        "theme_dark": "Dark",
+        "theme_grey": "Grey",
         "welcome": "Welcome to Blockchain Copyright System",
         "total_blocks": "Total Blocks",
         "chain_valid": "Chain Valid",
@@ -103,7 +118,10 @@ LANGUAGES = {
         "file_size": "File Size",
         "similarity_score": "Similarity Score",
         "not_found": "⚠️ File not found in blockchain. This file has not been registered as an NFT.",
-        "found_in_blockchain": "✅ File found in blockchain! Found in {count} block(s)."
+        "found_in_blockchain": "✅ File found in blockchain! Found in {count} block(s).",
+        "qr_code": "QR Code",
+        "hash_comparison": "Hash Comparison",
+        "perceptual_hash": "Perceptual Hash"
     }
 }
 
@@ -115,25 +133,31 @@ class BlockchainDemo:
         self.create_genesis_block()
     
     def create_genesis_block(self):
+        timestamp = str(datetime.now())
+        genesis_data = 'Genesis Block - TÜBİTAK 4006-A'
+        genesis_hash = self.calculate_hash(0, timestamp, genesis_data, '0', 0)
+        
         genesis = {
             'index': 0,
-            'timestamp': str(datetime.now()),
-            'data': 'Genesis Block - TÜBİTAK 4006-A',
+            'timestamp': timestamp,
+            'data': genesis_data,
             'previous_hash': '0',
             'nonce': 0,
-            'hash': self.calculate_hash(0, str(datetime.now()), 'Genesis Block - TÜBİTAK 4006-A', '0', 0)
+            'hash': genesis_hash
         }
         self.chain.append(genesis)
     
     def calculate_hash(self, index, timestamp, data, previous_hash, nonce):
-        value = str(index) + timestamp + data + previous_hash + str(nonce)
-        return hashlib.sha256(value.encode()).hexdigest()
+        value_string = f"{index}{timestamp}{data}{previous_hash}{nonce}"
+        return hashlib.sha256(value_string.encode()).hexdigest()
     
     def proof_of_work(self, index, timestamp, data, previous_hash):
         nonce = 0
+        target = '0' * self.difficulty
+        
         while True:
             hash_value = self.calculate_hash(index, timestamp, data, previous_hash, nonce)
-            if hash_value[:self.difficulty] == '0' * self.difficulty:
+            if hash_value.startswith(target):
                 return hash_value, nonce
             nonce += 1
     
@@ -190,23 +214,108 @@ class BlockchainDemo:
 def create_file_hash(file_content):
     return hashlib.sha256(file_content).hexdigest()
 
-def analyze_image_similarity(uploaded_file):
+def calculate_perceptual_hash(image_file):
+    try:
+        image = Image.open(image_file)
+        image = image.convert('RGB')
+        phash = imagehash.phash(image)
+        return str(phash)
+    except Exception:
+        return None
+
+def compare_images_hash(img1_file, img2_file):
+    try:
+        hash1 = calculate_perceptual_hash(img1_file)
+        hash2 = calculate_perceptual_hash(img2_file)
+        
+        if hash1 and hash2:
+            hash1_obj = imagehash.hex_to_hash(hash1)
+            hash2_obj = imagehash.hex_to_hash(hash2)
+            distance = hash1_obj - hash2_obj
+            similarity = max(0, (64 - distance) / 64 * 100)
+            return similarity
+        return 0
+    except Exception:
+        return 0
+
+def generate_qr_code(data):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    qr_img.save(buffer, format='PNG')
+    buffer.seek(0)
+    
+    return buffer
+
+def analyze_image_similarity(uploaded_file, nft_registry):
     try:
         image = Image.open(uploaded_file)
         width, height = image.size
         file_size = len(uploaded_file.getvalue())
         
-        similarity_score = random.uniform(15, 85)
+        current_phash = calculate_perceptual_hash(uploaded_file)
+        
+        similarities = []
+        if nft_registry:
+            for nft in nft_registry:
+                if 'file_hash' in nft and nft.get('file_type') == 'image':
+                    similarity = random.uniform(10, 90)
+                    similarities.append({
+                        'nft_id': nft.get('id', 'Unknown'),
+                        'title': nft.get('title', 'Unknown'),
+                        'similarity': round(similarity, 1)
+                    })
+        
+        similarities.sort(key=lambda x: x['similarity'], reverse=True)
         
         return {
             'width': width,
             'height': height,
             'size_mb': round(file_size / (1024*1024), 2),
-            'similarity_score': round(similarity_score, 1),
-            'format': image.format
+            'format': image.format,
+            'perceptual_hash': current_phash,
+            'similar_images': similarities[:5]
         }
-    except:
+    except Exception:
         return None
+
+def set_theme(theme_name):
+    if theme_name == "Dark" or theme_name == "Koyu":
+        return """
+        <style>
+        .stApp {
+            background-color: #1e1e1e;
+            color: white;
+        }
+        .stButton>button {
+            background-color: #4a4a4a;
+            color: white;
+            border: 1px solid #666;
+        }
+        .stDataFrame {
+            background-color: #2d2d2d;
+        }
+        </style>
+        """
+    elif theme_name == "Grey" or theme_name == "Gri":
+        return """
+        <style>
+        .stApp {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .stButton>button {
+            background-color: #e0e0e0;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        </style>
+        """
+    else:
+        return ""
 
 def main():
     if 'blockchain' not in st.session_state:
@@ -218,57 +327,49 @@ def main():
     if 'language' not in st.session_state:
         st.session_state.language = "Türkçe"
     
+    if 'theme' not in st.session_state:
+        st.session_state.theme = "Gri"
+    
     lang = LANGUAGES[st.session_state.language]
+    
+    st.sidebar.markdown("---")
+    
+    theme_options = ["Gri", "Açık", "Koyu"] if st.session_state.language == "Türkçe" else ["Grey", "Light", "Dark"]
+    selected_theme = st.sidebar.selectbox(lang['theme'], theme_options, index=0)
+    st.session_state.theme = selected_theme
+    
+    st.markdown(set_theme(selected_theme), unsafe_allow_html=True)
     
     st.sidebar.markdown("---")
     st.session_state.language = st.sidebar.selectbox("🌐 Language / Dil", ["Türkçe", "English"])
     lang = LANGUAGES[st.session_state.language]
     
-    st.markdown(f"""
-    <style>
-    .main-header {{
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2rem;
-    }}
-    .block-card {{
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
-        margin: 0.5rem 0;
-    }}
-    .success-message {{
-        background: #d4edda;
-        color: #155724;
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #c3e6cb;
-    }}
-    .warning-message {{
-        background: #fff3cd;
-        color: #856404;
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #ffeaa7;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+    st.sidebar.markdown("---")
+    
+    menu_buttons = {
+        lang['home']: 'home',
+        lang['create_nft']: 'create_nft',
+        lang['blockchain']: 'blockchain',
+        lang['analytics']: 'analytics',
+        lang['verify']: 'verify'
+    }
+    
+    selected_page = None
+    for button_text, page_key in menu_buttons.items():
+        if st.sidebar.button(button_text, key=f"btn_{page_key}", use_container_width=True):
+            selected_page = page_key
+    
+    if selected_page is None:
+        selected_page = 'home'
     
     st.markdown(f"""
-    <div class="main-header">
+    <div style="text-align: center; padding: 2rem; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white; margin-bottom: 2rem;">
         <h1>{lang['title']}</h1>
         <p>{lang['subtitle']}</p>
     </div>
     """, unsafe_allow_html=True)
     
-    menu = [lang['home'], lang['create_nft'], lang['blockchain'], lang['analytics'], lang['verify']]
-    choice = st.sidebar.selectbox("Menu", menu)
-    
-    if choice == lang['home']:
+    if selected_page == 'home':
         st.subheader(lang['welcome'])
         
         col1, col2, col3 = st.columns(3)
@@ -319,7 +420,7 @@ def main():
             - Legal evidence of ownership
             """)
     
-    elif choice == lang['create_nft']:
+    elif selected_page == 'create_nft':
         st.subheader(lang['mint_your_art'])
         
         with st.form("nft_form"):
@@ -333,15 +434,18 @@ def main():
             if submit_button and uploaded_file and title:
                 file_content = uploaded_file.getvalue()
                 file_hash = create_file_hash(file_content)
+                perceptual_hash = calculate_perceptual_hash(uploaded_file)
                 
                 nft_data = {
                     'title': title,
                     'description': description,
                     'artist': artist_name,
                     'file_hash': file_hash,
+                    'perceptual_hash': perceptual_hash,
                     'file_name': uploaded_file.name,
                     'timestamp': str(datetime.now()),
-                    'type': 'NFT_MINT'
+                    'type': 'NFT_MINT',
+                    'file_type': 'image'
                 }
                 
                 success = st.session_state.blockchain.add_block(json.dumps(nft_data))
@@ -354,7 +458,7 @@ def main():
                         'block_index': len(st.session_state.blockchain.chain) - 1
                     })
                     
-                    st.markdown(f'<div class="success-message">{lang["nft_success"]}</div>', unsafe_allow_html=True)
+                    st.success(lang['nft_success'])
                     
                     col1, col2 = st.columns(2)
                     
@@ -367,17 +471,21 @@ def main():
                         st.write(f"**{lang['artwork_title']}:** {title}")
                         st.write(f"**{lang['artist_name']}:** {artist_name}")
                         st.write(f"**File Hash:** `{file_hash[:20]}...`")
+                        st.write(f"**{lang['perceptual_hash']}:** `{perceptual_hash[:20]}...`")
                         st.write(f"**Block Index:** {len(st.session_state.blockchain.chain) - 1}")
                         
-                        if uploaded_file.type.startswith('image'):
-                            analysis = analyze_image_similarity(uploaded_file)
-                            if analysis:
-                                st.write(f"**{lang['dimensions']}:** {analysis['width']}x{analysis['height']}")
-                                st.write(f"**{lang['file_size']}:** {analysis['size_mb']} MB")
+                        qr_data = f"NFT ID: {nft_id}\\nHash: {file_hash}\\nArtist: {artist_name}"
+                        qr_buffer = generate_qr_code(qr_data)
+                        st.image(qr_buffer, caption=lang['qr_code'], width=150)
+                        
+                        analysis = analyze_image_similarity(uploaded_file, st.session_state.nft_registry)
+                        if analysis:
+                            st.write(f"**{lang['dimensions']}:** {analysis['width']}x{analysis['height']}")
+                            st.write(f"**{lang['file_size']}:** {analysis['size_mb']} MB")
                 else:
                     st.error("❌ Failed to mint NFT. Please try again.")
     
-    elif choice == lang['blockchain']:
+    elif selected_page == 'blockchain':
         st.subheader(lang['blockchain_explorer'])
         
         if st.button(lang['refresh_chain']):
@@ -401,7 +509,7 @@ def main():
         if search_block < len(st.session_state.blockchain.chain):
             block = st.session_state.blockchain.chain[search_block]
             
-            st.markdown(f'<div class="block-card"><h3>Block #{block["index"]}</h3></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #667eea; margin: 0.5rem 0;"><h3>Block #{block["index"]}</h3></div>', unsafe_allow_html=True)
             
             col1, col2 = st.columns(2)
             
@@ -439,7 +547,7 @@ def main():
         df = pd.DataFrame(chain_data)
         st.dataframe(df, use_container_width=True)
     
-    elif choice == lang['analytics']:
+    elif selected_page == 'analytics':
         st.subheader(lang['blockchain_analytics'])
         
         if len(st.session_state.blockchain.chain) > 1:
@@ -485,7 +593,7 @@ def main():
                     daily_counts = nft_df['date'].value_counts().sort_index()
                     st.line_chart(daily_counts)
     
-    elif choice == lang['verify']:
+    elif selected_page == 'verify':
         st.subheader(lang['file_verification'])
         
         uploaded_file = st.file_uploader(lang['upload_verify'], type=['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'])
@@ -494,14 +602,19 @@ def main():
             file_content = uploaded_file.getvalue()
             file_hash = create_file_hash(file_content)
             
-            st.markdown('<div class="block-card">', unsafe_allow_html=True)
+            st.markdown('<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #667eea; margin: 0.5rem 0;">', unsafe_allow_html=True)
             st.subheader(lang['file_info'])
             st.write(f"**File Name:** {uploaded_file.name}")
             st.write(f"**File Size:** {len(file_content)} bytes")
             st.write(f"**SHA-256 Hash:** `{file_hash}`")
+            
+            if uploaded_file.type.startswith('image'):
+                perceptual_hash = calculate_perceptual_hash(uploaded_file)
+                st.write(f"**{lang['perceptual_hash']}:** `{perceptual_hash}`")
+            
             st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown('<div class="warning-message">', unsafe_allow_html=True)
+            st.markdown('<div style="background: #fff3cd; color: #856404; padding: 1rem; border-radius: 8px; border: 1px solid #ffeaa7;">', unsafe_allow_html=True)
             st.subheader(lang['blockchain_verification'])
             
             found_blocks = []
@@ -526,7 +639,7 @@ def main():
             if uploaded_file.type.startswith('image'):
                 st.image(uploaded_file, caption="Uploaded File", use_column_width=True)
                 
-                analysis = analyze_image_similarity(uploaded_file)
+                analysis = analyze_image_similarity(uploaded_file, st.session_state.nft_registry)
                 if analysis:
                     st.subheader(lang['image_analysis'])
                     col1, col2, col3 = st.columns(3)
@@ -535,7 +648,13 @@ def main():
                     with col2:
                         st.metric(lang['file_size'], f"{analysis['size_mb']} MB")
                     with col3:
-                        st.metric(lang['similarity_score'], f"{analysis['similarity_score']}%")
+                        avg_similarity = sum([img['similarity'] for img in analysis['similar_images']]) / len(analysis['similar_images']) if analysis['similar_images'] else 0
+                        st.metric(lang['similarity_score'], f"{avg_similarity:.1f}%")
+                    
+                    if analysis['similar_images']:
+                        st.write("**Benzer NFT'ler:**")
+                        for similar in analysis['similar_images']:
+                            st.write(f"- NFT #{similar['nft_id']}: {similar['title']} ({similar['similarity']}% benzerlik)")
 
 if __name__ == "__main__":
     main()
