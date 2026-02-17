@@ -3,7 +3,7 @@
 **TÜBİTAK 4006-A Projesi** - Dijital Sanat Koruma Blockchain üzerinde
 
 ## 🚀 Canlı Demo
-[▶️ Streamlit Cloud'da Dene](https://share.streamlit.io/)
+[Deneyin!](https://share.streamlit.io/)
 
 ## ✨ Özellikler
 
@@ -56,15 +56,6 @@ pip install -r requirements.txt
 # Uygulamayı çalıştır
 streamlit run app.py
 ```
-
-### Streamlit Cloud Deploy
-1. Bu repository'i fork et
-2. [share.streamlit.io](https://share.streamlit.io/)'ya git
-3. GitHub hesabını bağla
-4. Repository ve main branch seç
-5. Ana sayfa olarak `app.py` ayarla
-6. Deploy'e tıkla!
-
 ## 📁 Proje Yapısı
 ```
 blockchain-streamlit-cloud/
@@ -121,7 +112,7 @@ Bu proje **ortaokul ve lise öğrencileri** için tasarlandı:
 - ✅ Telif hakları konsepti
 - ✅ Programlama becerileri
 
-## � Dil Desteği
+## Dil Desteği
 
 - **Türkçe** - Tam Türkçe arayüz ve içerik
 - **English** - Complete English interface
@@ -142,5 +133,3 @@ TÜBİTAK 4006-A Projesi kapsamında geliştirildi.
 Sorular için proje danışmanlarına başvurunuz.
 
 ---
-
-**🚀 Hemen Streamlit Cloud'da deneyin!**
